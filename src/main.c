@@ -1,6 +1,10 @@
 #include <string.h>
 #include <time.h>
 #include <sys/select.h>
+#include <stdio.h>
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <unistd.h>
 
 #define ICMP_ECHO_REQUEST 8
 
@@ -11,14 +15,14 @@ int checksum(char* str) {
     int count = 0;
 
     while(count < countTo) {
-        int thisVal = ord(str[count + 1]) * 256 + ord(str[count]);
+        int thisVal = ((int) str[count + 1]) * 256 + ((int) str[count]);
         csum += thisVal;
         csum = csum & 0xffffffff;
         count += 2;
     }
 
     if (countTo < len) {
-        csum += ord(str[len - 1]);
+        csum += ((int)str[len - 1]);
         csum = csum & 0xffffffff;
     }
 
@@ -35,35 +39,29 @@ int checksum(char* str) {
     return 0;
 }
 
-char* receiveOnePing(int mySocket, int ID, int timeout, int destAddr) {
-    int timeLeft = timeout;
+int receiveOnePing(int mySocket, int ID, int timeout, struct hostent* destAddr) {
+    time_t timeLeft = timeout;
     while (1) {
-        time_t startedSelect = time(NULL);
-    }
-    return "";
-}
-
-/*
-def receiveOnePing(mySocket, ID, timeout, destAddr):
-    timeLeft = timeout
-    while 1:
-        startedSelect = time.time()
-        whatReady = select.select([mySocket], [], [], timeLeft)
-        howLongInSelect = (time.time() - startedSelect)
-        if whatReady[0] == []: // Timeout
-            return "Request timed out."
+        int startedSelect = time(NULL);
+//        whatReady = select.select([mySocket], [], [], timeLeft)
+        int howLongInSelect = (time(NULL) - startedSelect);
+//        if whatReady[0] == []: // Timeout
+//            return "Request timed out."
         //Fill in start
         // get the time the packet is received and store it in "timeReceived"
         // receive the packet from socket and extract information into "recPacket, addr"
         // fetch the ICMP header from the IP packet
         // get TTL, icmpType, code, checksum, packetID, and sequence
-        // get data payload, and return information that can be print later,
-        including byte_data, time used from packet sent to received, TTL
+        // get data payload, and return information that can be print later, including byte_data, time used from packet sent to received, TTL
         //Fill in end
-        timeLeft = timeLeft - howLongInSelect
-        if timeLeft <= 0:
-            return "Request timed out."
-            */
+        timeLeft -= howLongInSelect;
+        if (timeLeft <= 0) {
+            printf("Request timed out.");
+            return -1;
+        }
+    }
+}
+
 struct ICMP_header {
     __uint8_t type;
     __uint8_t code;
@@ -72,9 +70,9 @@ struct ICMP_header {
     __uint16_t sequence;
 };
 
-void sendOnePing(int mySocket, int destAddr, int ID) {
+void sendOnePing(int mySocket, struct hostent* destAddr, int ID) {
     // Header is type (8), code (8), checksum (16), id (16), sequence (16)
-    int myChecksum = 0;
+    __uint16_t myChecksum = 0;
     // Make a dummy header with a 0 checksum
     // struct -- Interpret strings as packed binary data
     struct ICMP_header header; 
@@ -99,8 +97,8 @@ void sendOnePing(int mySocket, int destAddr, int ID) {
     // which can be referenced by their position number within the object.
 }
 
-int doOnePing(int destAddr, int timeout) {
-    int icmp = getprotobyname("icmp");
+int doOnePing(struct hostent* destAddr, int timeout) {
+    struct protoent* icmp = getprotobyname("icmp");
     //Fill in start
     int mySocket = 0;
     // create a socket with SOCK_RAW as the socket type, and icmp as the protocol;
@@ -116,8 +114,8 @@ int doOnePing(int destAddr, int timeout) {
 int ping(char* host, int timeout) {
     // timeout=1 means: If one second goes by without a reply from the server,
     // the client assumes that either the client's ping or the server's pong is lost
-    int dest = gethostbyname(host);
-    printf("Pinging %d using Python:\n\n", dest);
+    struct hostent* dest = gethostbyname(host);
+    printf("Pinging %s using Python:\n\n", dest->h_name);
     //print "Pinging " + dest + " using Python:"
     while (1) {
         int delay = doOnePing(dest, timeout);
